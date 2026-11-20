@@ -15,4 +15,4 @@ globalThis.caches={default:{match:async()=>null,put:async()=>{}}};
 if(process.env.SEED){const r=JSON.parse(fs.readFileSync(process.env.SEED,'utf8'));T.set('callers.core',{v:JSON.stringify(r.core),t:0});T.set('callers.rounds',{v:JSON.stringify(r.rounds),t:0})}
 await worker._run(env);
 const res=await worker.fetch(new Request('https://x/calls'),env,{waitUntil(){}});
-console.log(res.status, JSON.stringify(await res.json(),null,1).slice(0,4000));process.exit();
+console.log(res.status, JSON.stringify(await res.json(),null,1));process.exit();

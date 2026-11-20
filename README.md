@@ -1,6 +1,6 @@
 # Bitcoin Pulse Board 3
 Condensed, fast view of the Pulse Board callers (Dash, Zippy, Mellow, Ripple, Sage, The Chief, Flippy) for Kalshi's 15-minute BTC up/down window.
-Each caller shows only: avatar + name, direction, call time, and its reasoning. **Paper picks only — no bets, no money, no keys.**
+Each caller shows only: avatar + name, direction, call time, its reasoning, and its all-time W–L (settled calls, scored by the engine against Kalshi settlement). A small strip shows the actual UP/DOWN result of the last 20 settled windows. **Paper picks only — no bets, no money, no keys.**
 
 Calls come from `pulse3-engine` (Cloudflare Worker, own D1 `pulse3-engine-db`, cron every minute, 24/7) at
 https://pulse3-engine.rydawg2026.workers.dev (`/calls`, `/health`, `/state`, `/history`). Caller logic (indicators.js, news.js, badges.js, callers.js)

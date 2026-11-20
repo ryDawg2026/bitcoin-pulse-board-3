@@ -3,7 +3,7 @@
    Beats that fall inside the minute (8:30, 9:30, 12:30, 13:30, 14:30) are handled by waiting for them inside the same run. */
 var ORIGIN='https://rydawg2026.github.io',VERSION='1.0',SERIES='KXBTC15M',Q=900;
 var KALSHI=['https://api.elections.kalshi.com/trade-api/v2','https://kalshi-relay.rydawg2026.workers.dev'];
-var K_CORE='callers.core',K_ROUNDS='callers.rounds',K_BADGES='badges',K_HEALTH='health',K_LOCK='lock',K_LASTERR='lasterr';
+var K_CORE='callers.core',K_ROUNDS='callers.rounds',K_BADGES='badges',K_HEALTH='health',K_LOCK='lock',K_LASTERR='lasterr',K_RES='results';
 var KEEP_ROUNDS=6,LEASE_S=58;
 function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
 function nowS(){return Math.floor(Date.now()/1000)}
@@ -53,7 +53,7 @@ async function run(env){
   try{
     lease=await takeLease(env);
     if(!lease){var hr=await dbGetMany(env,[K_HEALTH]);var hh=hr[K_HEALTH]?JSON.parse(hr[K_HEALTH]):newHealth();hh.skippedOverlap=(hh.skippedOverlap||0)+1;await upsert(env,K_HEALTH,JSON.stringify(hh)).run();return {skipped:true}}
-    rows=await dbGetMany(env,[K_CORE,K_ROUNDS,K_BADGES,K_HEALTH]);
+    rows=await dbGetMany(env,[K_CORE,K_ROUNDS,K_BADGES,K_HEALTH,K_RES]);
     if(rows[K_HEALTH])try{h=JSON.parse(rows[K_HEALTH])}catch(e){h=newHealth()}
     install(rows);
     var host={state:function(){return {groks:{}}}};
@@ -69,7 +69,8 @@ async function run(env){
       await sleep(Math.max(0,(nd+1)*1000-Date.now()));
     }
     try{if(PulseIndicators.futMark().at<now-170)await PulseIndicators.futOnce();var F=PulseIndicators.futMark();H.futures=F.err?('error: '+F.err):('ok ('+F.src+')')}catch(e){H.futures='error: '+e.message}
-    var snap=snapshot(),w=[];
+    var resNew=null;try{resNew=await updResults(rows[K_RES],H);}catch(e){H.results='error: '+e.message}
+    var snap=snapshot(),w=[];if(resNew&&resNew!==rows[K_RES])w.push(upsert(env,K_RES,resNew));
     if(snap.core!==rows[K_CORE])w.push(upsert(env,K_CORE,snap.core));
     if(snap.rounds!==rows[K_ROUNDS])w.push(upsert(env,K_ROUNDS,snap.rounds));
     if(snap.badges!==rows[K_BADGES])w.push(upsert(env,K_BADGES,snap.badges));
@@ -87,19 +88,25 @@ async function run(env){
   }finally{if(lease){try{await releaseLease(env)}catch(e){}}}
   return {ok:ok,err:err}
 }
+/* ---- last settled Kalshi windows (actual UP/DOWN), kept for the results strip; 'yes' = BTC finished above the strike = UP ---- */
+async function updResults(raw,H){var L=[];try{L=raw?JSON.parse(raw):[]}catch(e){L=[]}
+  var n=nowS(),Wprev=Math.floor(n/Q)*Q-Q,have={};L.forEach(function(x){have[x.W]=1});
+  var src=H.settled;if(!have[Wprev]&&(!src||!src.length||L.length<20)){var k=await kalshiGet('/markets?series_ticker='+SERIES+'&status=settled&limit=25');src=(k.d.markets||[]).filter(function(m){return m.result==='yes'||m.result==='no'})}
+  (src||[]).forEach(function(m){var W=Math.round(Date.parse(m.close_time)/1000)-Q;if(!have[W]&&isFinite(W)){have[W]=1;L.push({W:W,r:m.result==='yes'?'UP':'DOWN'})}});
+  L.sort(function(a,b){return a.W-b.W});L=L.slice(-40);H.results='ok ('+L.length+')';return JSON.stringify(L)}
 /* ---- Pulse Board 3 condensed view: each caller's latest call (this window, else last window) + its own plain-language reasoning ---- */
-function callsView(core,rounds,health){var n=nowS(),W=Math.floor(n/Q)*Q,CP=CallersPanel,out=[];
+function callsView(core,rounds,health,results){var n=nowS(),W=Math.floor(n/Q)*Q,CP=CallersPanel,out=[];
   function latest(w,id){var r=rounds[w];if(!r||!r.calls||!r.calls[id])return null;var l=null;r.calls[id].forEach(function(c){if(c&&(!l||c.at>l.at))l=c});return l}
   CP.IDS.forEach(function(id){var P=CP.PROFILES[id],c=latest(W,id),w=W;if(!c){c=latest(W-Q,id);w=W-Q}
-    var o={id:id,name:P.name,style:P.style,beats:CP.BEATS[id],call:null};
+    var T=core&&core.tot&&core.tot[id],o={id:id,name:P.name,style:P.style,beats:CP.BEATS[id],call:null,w:T?T.a.w:0,l:T?T.a.n-T.a.w:0};
     if(c){var st=c.sit?'noflip':c.nc?'noread':c.dir?'call':'skip',why='';try{why=CP._bubble(id,c)}catch(e){why=''}
       o.call={W:w,cur:w===W,sec:c.sec,at:c.at,dir:c.dir||null,state:st,conf:c.conf||null,why:why,top:(c.top||[]).slice(0,3)}}
     out.push(o)});
-  return {W:W,serverTime:n,engine:{ok:!!(health&&health.lastOk&&n-health.lastOk<=180),lastOk:health&&health.lastOk||0},paperOnly:true,callers:out}}
+  return {W:W,serverTime:n,engine:{ok:!!(health&&health.lastOk&&n-health.lastOk<=180),lastOk:health&&health.lastOk||0},paperOnly:true,results:(results||[]).slice(-20),callers:out}}
 /* ---- HTTP ---- */
 function cors(extra){var h={'access-control-allow-origin':ORIGIN,'vary':'Origin','content-type':'application/json; charset=utf-8','cache-control':'public, max-age=10','x-content-type-options':'nosniff'};if(extra)Object.keys(extra).forEach(function(k){h[k]=extra[k]});return h}
 function jr(o,st,extra){return new Response(JSON.stringify(o),{status:st||200,headers:cors(extra)})}
-async function loadAll(env){var rows=await dbGetMany(env,[K_CORE,K_ROUNDS,K_BADGES,K_HEALTH]);return {core:rows[K_CORE]?JSON.parse(rows[K_CORE]):null,rounds:rows[K_ROUNDS]?JSON.parse(rows[K_ROUNDS]):{},badges:rows[K_BADGES]?JSON.parse(rows[K_BADGES]):null,health:rows[K_HEALTH]?JSON.parse(rows[K_HEALTH]):null}}
+async function loadAll(env){var rows=await dbGetMany(env,[K_CORE,K_ROUNDS,K_BADGES,K_HEALTH,K_RES]);return {results:rows[K_RES]?JSON.parse(rows[K_RES]):[],core:rows[K_CORE]?JSON.parse(rows[K_CORE]):null,rounds:rows[K_ROUNDS]?JSON.parse(rows[K_ROUNDS]):{},badges:rows[K_BADGES]?JSON.parse(rows[K_BADGES]):null,health:rows[K_HEALTH]?JSON.parse(rows[K_HEALTH]):null}}
 function healthView(h){var n=nowS();if(!h)return {ok:false,status:'no run yet'};var age=h.lastRun?n-h.lastRun:null;
   return {ok:!!(h.lastOk&&n-h.lastOk<=180),status:!h.lastRun?'no run yet':(n-h.lastOk<=180?'running':'stale'),version:VERSION,serverTime:new Date(n*1000).toISOString(),lastRun:h.lastRun?new Date(h.lastRun*1000).toISOString():null,lastRunAgeSeconds:age,lastOk:h.lastOk?new Date(h.lastOk*1000).toISOString():null,lastError:h.lastError,lastErrorAt:h.lastErrorAt?new Date(h.lastErrorAt*1000).toISOString():null,recentErrors:(h.errors||[]).slice(-5),runsToday:h.day===dayKey(n)?h.runsToday:0,runsLast24h:(h.mins||[]).filter(function(x){return x>=Math.floor(n/60)-1440}).length,expectedRunsLast24h:Math.min(1440,Math.floor((n-(h.first||n))/60)),gaps:gapsOf(h.mins||[],n),okRuns:h.okRuns||0,failedRuns:h.failRuns||0,skippedOverlap:h.skippedOverlap||0,lastCycle:h.last||{},cron:'* * * * * (UTC, every minute, 24/7)',paperOnly:true}}
 async function handle(request,env,ctx){
@@ -114,7 +121,7 @@ async function handle(request,env,ctx){
     else if(u.pathname==='/history'){var s2=await loadAll(env);var core=s2.core||{},B=s2.badges||{lead:{hist:[]}};
       var wins=Object.keys(s2.rounds).map(Number).sort(function(a,b){return b-a}).map(function(w){var r=s2.rounds[w],c={};Object.keys(r.calls).forEach(function(id){c[id]=r.calls[id].map(function(x){return x?(x.sit?{sit:1,fconf:x.fconf}:x.nc?{nc:1}:x.dir?{dir:x.dir,conf:x.conf,shadow:x.shadow?1:0,gate:x.gate&&x.gate.lvl}:{skip:1}):null})});return {W:w,time:new Date(w*1000).toISOString(),result:r.res,scored:!!r.scored,calls:c}});
       res=jr({windows:wins,lines:(core.hl||[]).map(function(e){return {W:e.W,time:new Date(e.W*1000).toISOString(),text:e.t}}),leaderChanges:(B.lead&&B.lead.hist||[]).map(function(e){return {id:e.id,from:e.from,at:new Date(e.at*1000).toISOString(),w:e.w,n:e.n}}),leader:B.lead&&B.lead.cur,benched:Object.keys(core.bench||{}).filter(function(k){return core.bench[k].on}),totals:core.tot?Object.keys(core.tot).reduce(function(o,k){o[k]={n:core.tot[k].a.n,w:core.tot[k].a.w};return o},{}):{}})}
-    else if(u.pathname==='/calls'){var s3=await loadAll(env);res=jr(callsView(s3.core,s3.rounds,s3.health),200,{'cache-control':'public, max-age=5'})}
+    else if(u.pathname==='/calls'){var s3=await loadAll(env);res=jr(callsView(s3.core,s3.rounds,s3.health,s3.results),200,{'cache-control':'public, max-age=5'})}
     else if(u.pathname==='/'||u.pathname==='')res=jr({name:'pulse3-engine',paperOnly:true,endpoints:['/calls','/state','/history','/health']});
     else res=jr({error:'not found'},404,{'cache-control':'no-store'});
   }catch(e){return jr({error:'engine storage error'},500,{'cache-control':'no-store'})}

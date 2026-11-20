@@ -16,10 +16,14 @@ h1{font-size:19px;margin:4px 0 2px}#win{color:#9aa5b8;font-size:14px;margin:0 0 
 .t{color:#9aa5b8;font-size:14px}.t b{color:#e8ecf3}.old{color:#e0b85a}
 .y{grid-column:1/-1;font-size:15px;margin:4px 0 0}.y ul{margin:6px 0 0;padding-left:18px;color:#b7c0d0;font-size:14px}
 .up-t{color:#5ee38f}.dn-t{color:#ff7b84}
+#strip{display:flex;align-items:center;gap:3px;margin:0 0 12px;flex-wrap:wrap}#strip .lb{color:#9aa5b8;font-size:13px;margin-right:6px}
+#strip i{display:inline-block;width:14px;height:20px;border-radius:3px;font-style:normal;font-size:10px;line-height:20px;text-align:center;color:#0f1218;font-weight:800}
+#strip i.UP{background:#3fcf7a}#strip i.DOWN{background:#ff6b75}
+.wl{font-size:13px;color:#9aa5b8;margin-left:auto;white-space:nowrap}.wl b{color:#5ee38f}.wl s{text-decoration:none;color:#ff7b84;font-weight:700}
 #err{color:#ff9a9a;font-size:14px}
 footer{color:#6f7a8d;font-size:12px;text-align:center;margin-top:10px}
 </style></head><body><main>
-<h1>Pulse Board 3 · BTC callers</h1><p id="win">Loading the latest calls…</p><div id="err"></div><div id="list"></div>
+<h1>Pulse Board 3 · BTC callers</h1><p id="win">Loading the latest calls…</p><div id="strip"></div><div id="err"></div><div id="list"></div>
 <footer>Paper picks only. Not financial advice, no bets placed.</footer></main>
 <script>
 var AV=__AVATARS__,ORDER=['dash','zippy','mellow','ripple','sage','chief','flippy'],API='https://pulse3-engine.rydawg2026.workers.dev/calls';
@@ -27,14 +31,15 @@ function bt(s){return Math.floor(s/60)+':'+('0'+s%60).slice(-2)}
 function clk(t){return new Date(t*1000).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 var LBL={call:null,noflip:'💤 No flip seen',noread:'🤷 No clear read',skip:'⏸ Skipped: too fast'};
-function card(o,W,now){var c=o.call,el=now-W,h='<div class="c">'+AV[o.id]+'<div class="hd"><span class="nm">'+esc(o.name)+'</span>';
-  if(!c){var nx=o.beats.filter(function(s){return s>el})[0];return h+'<span class="d no">Waiting</span></div><div class="t">First call at <b>'+bt(nx!=null?nx:o.beats[0])+'</b> ('+clk(W+(nx!=null?nx:o.beats[0]))+')</div></div>'}
+function card(o,W,now){var c=o.call,el=now-W,h='<div class="c">'+AV[o.id]+'<div class="hd"><span class="nm">'+esc(o.name)+'</span>',wl='<span class="wl" title="settled calls, all-time"><b>'+o.w+'W</b>–<s>'+o.l+'L</s></span>';
+  if(!c){var nx=o.beats.filter(function(s){return s>el})[0];return h+'<span class="d no">Waiting</span>'+wl+'</div><div class="t">First call at <b>'+bt(nx!=null?nx:o.beats[0])+'</b> ('+clk(W+(nx!=null?nx:o.beats[0]))+')</div></div>'}
   var d=c.state==='call'?'<span class="d '+c.dir+'">'+(c.dir==='UP'?'▲ UP':'▼ DOWN')+'</span>':'<span class="d no">'+LBL[c.state]+'</span>';
-  h+=d+'</div><div class="t">Called at <b>'+bt(c.sec)+'</b> ('+clk(c.at)+')'+(c.cur?'':' <span class="old">· last window</span>')+'</div>';
+  h+=d+wl+'</div><div class="t">Called at <b>'+bt(c.sec)+'</b> ('+clk(c.at)+')'+(c.cur?'':' <span class="old">· last window</span>')+'</div>';
   h+='<div class="y">'+(c.why||'')+(c.top&&c.top.length?'<ul>'+c.top.map(function(x){return '<li>'+esc(x)+'</li>'}).join('')+'</ul>':'')+'</div>';
   return h+'</div>'}
 function draw(j){var now=Math.floor(Date.now()/1000),W=j.W;
   document.getElementById('win').textContent='Window '+clk(W)+'–'+clk(W+900)+' · settles at minute 15'+(j.engine.ok?'':' · engine is behind, calls may be late');
+  var R=j.results||[];document.getElementById('strip').innerHTML=R.length?'<span class="lb">Last '+R.length+' results</span>'+R.map(function(x){return '<i class="'+x.r+'" title="'+clk(x.W)+' window: '+x.r+'">'+(x.r==='UP'?'▲':'▼')+'</i>'}).join(''):'';
   var by={};j.callers.forEach(function(o){by[o.id]=o});
   document.getElementById('list').innerHTML=ORDER.map(function(id){return by[id]?card(by[id],W,now):''}).join('')}
 function load(){fetch(API,{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}).then(function(j){document.getElementById('err').textContent='';draw(j)})
