@@ -4,7 +4,7 @@
 var ORIGIN='https://rydawg2026.github.io',VERSION='1.0',SERIES='KXBTC15M',Q=900;
 var KALSHI=['https://api.elections.kalshi.com/trade-api/v2','https://kalshi-relay.rydawg2026.workers.dev'];
 var K_CORE='callers.core',K_ROUNDS='callers.rounds',K_BADGES='badges',K_HEALTH='health',K_LOCK='lock',K_LASTERR='lasterr',K_RES='results';
-var KEEP_ROUNDS=6,LEASE_S=58;
+var KEEP_ROUNDS=6,LEASE_S=75;
 function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
 function nowS(){return Math.floor(Date.now()/1000)}
 async function dbGetMany(env,keys){
@@ -57,7 +57,7 @@ async function run(env){
     if(rows[K_HEALTH])try{h=JSON.parse(rows[K_HEALTH])}catch(e){h=newHealth()}
     install(rows);
     var host={state:function(){return {groks:{}}}};
-    var runEnd=t0-t0%60+58,cyc=0,now=t0;
+    var runEnd=t0+50 /* pulse3: cover the next 50 s from whenever the cron actually starts (it was starting ~40 s into the minute) */,cyc=0,now=t0;
     while(true){
       await feeds(H,cyc===0&&needSettle());now=nowS();CallersPanel._setNow(now);
       var before=callSig();
@@ -65,7 +65,7 @@ async function run(env){
       else CallersPanel.update(true);
       cyc++;var after=callSig();
       if(before!==after)fired++;
-      var nd=nextDue(now,runEnd);if(nd===null||cyc>=4)break;
+      var nd=nextDue(now,runEnd);if(nd===null||cyc>=6)break;
       await sleep(Math.max(0,(nd+1)*1000-Date.now()));
     }
     try{if(PulseIndicators.futMark().at<now-170)await PulseIndicators.futOnce();var F=PulseIndicators.futMark();H.futures=F.err?('error: '+F.err):('ok ('+F.src+')')}catch(e){H.futures='error: '+e.message}
