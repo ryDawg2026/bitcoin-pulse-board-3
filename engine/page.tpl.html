@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pulse Board 3 · BTC 15-min callers</title>
+<link rel="preconnect" href="https://pulse3-engine.rydawg2026.workers.dev" crossorigin>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}
+body{margin:0;background:#0f1218;color:#e8ecf3;font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:760px;margin:0 auto;padding:14px 12px 28px}
+h1{font-size:19px;margin:4px 0 2px}#win{color:#9aa5b8;font-size:14px;margin:0 0 12px}
+.c{display:grid;grid-template-columns:52px 1fr;gap:4px 12px;background:#171c25;border:1px solid #252c3a;border-radius:14px;padding:12px;margin:0 0 10px}
+.c svg{width:52px;height:52px;grid-row:span 2}
+.hd{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.nm{font-weight:700;font-size:17px}
+.d{font-weight:800;font-size:15px;padding:3px 10px;border-radius:999px;background:#2a3140}
+.d.UP{background:#123d27;color:#5ee38f}.d.DOWN{background:#45161b;color:#ff7b84}.d.no{color:#c7cede}
+.t{color:#9aa5b8;font-size:14px}.t b{color:#e8ecf3}.old{color:#e0b85a}
+.y{grid-column:1/-1;font-size:15px;margin:4px 0 0}.y ul{margin:6px 0 0;padding-left:18px;color:#b7c0d0;font-size:14px}
+.up-t{color:#5ee38f}.dn-t{color:#ff7b84}
+#err{color:#ff9a9a;font-size:14px}
+footer{color:#6f7a8d;font-size:12px;text-align:center;margin-top:10px}
+</style></head><body><main>
+<h1>Pulse Board 3 · BTC callers</h1><p id="win">Loading the latest calls…</p><div id="err"></div><div id="list"></div>
+<footer>Paper picks only. Not financial advice, no bets placed.</footer></main>
+<script>
+var AV=__AVATARS__,ORDER=['dash','zippy','mellow','ripple','sage','chief','flippy'],API='https://pulse3-engine.rydawg2026.workers.dev/calls';
+function bt(s){return Math.floor(s/60)+':'+('0'+s%60).slice(-2)}
+function clk(t){return new Date(t*1000).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+var LBL={call:null,noflip:'💤 No flip seen',noread:'🤷 No clear read',skip:'⏸ Skipped: too fast'};
+function card(o,W,now){var c=o.call,el=now-W,h='<div class="c">'+AV[o.id]+'<div class="hd"><span class="nm">'+esc(o.name)+'</span>';
+  if(!c){var nx=o.beats.filter(function(s){return s>el})[0];return h+'<span class="d no">Waiting</span></div><div class="t">First call at <b>'+bt(nx!=null?nx:o.beats[0])+'</b> ('+clk(W+(nx!=null?nx:o.beats[0]))+')</div></div>'}
+  var d=c.state==='call'?'<span class="d '+c.dir+'">'+(c.dir==='UP'?'▲ UP':'▼ DOWN')+'</span>':'<span class="d no">'+LBL[c.state]+'</span>';
+  h+=d+'</div><div class="t">Called at <b>'+bt(c.sec)+'</b> ('+clk(c.at)+')'+(c.cur?'':' <span class="old">· last window</span>')+'</div>';
+  h+='<div class="y">'+(c.why||'')+(c.top&&c.top.length?'<ul>'+c.top.map(function(x){return '<li>'+esc(x)+'</li>'}).join('')+'</ul>':'')+'</div>';
+  return h+'</div>'}
+function draw(j){var now=Math.floor(Date.now()/1000),W=j.W;
+  document.getElementById('win').textContent='Window '+clk(W)+'–'+clk(W+900)+' · settles at minute 15'+(j.engine.ok?'':' · engine is behind, calls may be late');
+  var by={};j.callers.forEach(function(o){by[o.id]=o});
+  document.getElementById('list').innerHTML=ORDER.map(function(id){return by[id]?card(by[id],W,now):''}).join('')}
+function load(){fetch(API,{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}).then(function(j){document.getElementById('err').textContent='';draw(j)})
+  .catch(function(e){document.getElementById('err').textContent='Couldn’t reach the caller engine ('+e.message+'). Retrying…'})}
+load();setInterval(load,20000);
+</script></body></html>
