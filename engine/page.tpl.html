@@ -14,7 +14,9 @@ h1{font-size:19px;margin:4px 0 2px}#win{color:#9aa5b8;font-size:14px;margin:0 0 
 .d{font-weight:800;font-size:15px;padding:3px 10px;border-radius:999px;background:#2a3140}
 .d.UP{background:#123d27;color:#5ee38f}.d.DOWN{background:#45161b;color:#ff7b84}.d.no{color:#c7cede}
 .t{color:#9aa5b8;font-size:14px}.t b{color:#e8ecf3}.old{color:#e0b85a}
-.y{grid-column:1/-1;font-size:15px;margin:4px 0 0}.y ul{margin:6px 0 0;padding-left:18px;color:#b7c0d0;font-size:14px}
+.rows{grid-column:1/-1;margin-top:6px}.row{border-top:1px solid #252c3a;padding:7px 0}.rt{display:flex;align-items:center;gap:8px;font-size:14px}.rt small{color:#8c97aa}
+.d.sm{font-size:12px;padding:1px 8px}.row:not(.lat){opacity:.85}details summary{cursor:pointer;color:#8fb4ff;font-size:13px;margin-top:3px}
+.y{font-size:15px;margin:4px 0 0}.y ul{margin:6px 0 0;padding-left:18px;color:#b7c0d0;font-size:14px}
 .up-t{color:#5ee38f}.dn-t{color:#ff7b84}
 #strip{display:flex;align-items:center;gap:3px;margin:0 0 12px;flex-wrap:wrap}#strip .lb{color:#9aa5b8;font-size:13px;margin-right:6px}
 #strip i{display:inline-block;width:14px;height:20px;border-radius:3px;font-style:normal;font-size:10px;line-height:20px;text-align:center;color:#0f1218;font-weight:800}
@@ -31,12 +33,17 @@ function bt(s){return Math.floor(s/60)+':'+('0'+s%60).slice(-2)}
 function clk(t){return new Date(t*1000).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 var LBL={call:null,noflip:'💤 No flip seen',noread:'🤷 No clear read',skip:'⏸ Skipped: too fast'};
-function card(o,W,now){var c=o.call,el=now-W,h='<div class="c">'+AV[o.id]+'<div class="hd"><span class="nm">'+esc(o.name)+'</span>',wl='<span class="wl" title="settled calls, all-time"><b>'+o.w+'W</b>–<s>'+o.l+'L</s></span>';
-  if(!c){var nx=o.beats.filter(function(s){return s>el})[0];return h+'<span class="d no">Waiting</span>'+wl+'</div><div class="t">Next call at <b>'+bt(nx!=null?nx:o.beats[0])+'</b> ('+clk(nx!=null?W+nx:W+900+o.beats[0])+')</div></div>'}
-  var d=c.state==='call'?'<span class="d '+c.dir+'">'+(c.dir==='UP'?'▲ UP':'▼ DOWN')+'</span>':'<span class="d no">'+LBL[c.state]+'</span>';
-  h+=d+wl+'</div><div class="t">Called at <b>'+bt(c.sec)+'</b> ('+clk(c.at)+')'+(c.cur?'':' <span class="old">· last window</span>')+'</div>';
-  h+='<div class="y">'+(c.why||'')+(c.top&&c.top.length?'<ul>'+c.top.map(function(x){return '<li>'+esc(x)+'</li>'}).join('')+'</ul>':'')+'</div>';
-  return h+'</div>'}
+function pill(x,small){var k=small?' sm':'';if(x.state==='call')return '<span class="d '+x.dir+k+'">'+(x.dir==='UP'?'▲ UP':'▼ DOWN')+'</span>';
+  if(x.state==='pending')return '<span class="d no'+k+'">Waiting</span>';if(x.state==='missed')return '<span class="d no'+k+'">Missed</span>';return '<span class="d no'+k+'">'+LBL[x.state]+'</span>'}
+function card(o,W,now){var wl='<span class="wl" title="settled calls, all-time"><b>'+o.w+'W</b>–<s>'+o.l+'L</s></span>',L=o.last>=0?o.slots[o.last]:null;
+  var h='<div class="c">'+AV[o.id]+'<div class="hd"><span class="nm">'+esc(o.name)+'</span>'+(L?pill(L):'<span class="d no">Waiting</span>')+wl+'</div>';
+  h+='<div class="t">'+(o.cur?'This window':'<span class="old">Last window</span>')+'</div><div class="rows">';
+  o.slots.forEach(function(x,i){var lat=i===o.last,tm='<b>'+bt(x.sec)+'</b> <small>'+clk(o.W+x.sec)+'</small>';
+    h+='<div class="row'+(lat?' lat':'')+'"><div class="rt">'+tm+' '+pill(x,1)+'</div>';
+    if(x.why){var body=x.why+(lat&&x.top&&x.top.length?'<ul>'+x.top.map(function(t){return '<li>'+esc(t)+'</li>'}).join('')+'</ul>':'');
+      h+=lat?'<div class="y">'+body+'</div>':'<details><summary>Why</summary><div class="y">'+body+'</div></details>'}
+    h+='</div>'});
+  return h+'</div></div>'}
 function draw(j){var now=Math.floor(Date.now()/1000),W=j.W;
   document.getElementById('win').textContent='Window '+clk(W)+'–'+clk(W+900)+' · settles at minute 15'+(j.engine.ok?'':' · engine is behind, calls may be late');
   var R=j.results||[];document.getElementById('strip').innerHTML=R.length?'<span class="lb">Last '+R.length+' results</span>'+R.map(function(x){return '<i class="'+x.r+'" title="'+clk(x.W)+' window: '+x.r+'">'+(x.r==='UP'?'▲':'▼')+'</i>'}).join(''):'';

@@ -1,7 +1,7 @@
 /* The callers — Dash, Zippy, Mellow, Ripple, Sage (v2) + Flippy + The Chief (Pulse Board 3: same logic as Pulse Board 2, new beat schedule). PAPER-ONLY: no money, no Kalshi orders, ever.
-   BEATS for Pulse Board 3 (seconds into each 15-minute Kalshi window). Zippy and Sage are FIXED (Ryann, 20 Nov): Zippy 4:00 8:00 12:00, Sage 5:00 10:00 12:00 (Ryann: Sage may share 12:00 with Zippy; same-second beats fire Zippy first).
-   Everyone else is unique, never on a Zippy/Sage beat, and at least 60 s from each other:
-     Dash 1:00 6:00 11:00 · Ripple 2:00 9:30 13:30 · Mellow 3:00 7:00 12:30 · The Chief 8:30 (after Dash 6, Mellow 7, Zippy 8, Ripple 2, Sage 5) · Flippy 14:30 (last call, 30 s before settlement)
+   BEATS for Pulse Board 3 (seconds into each 15-minute Kalshi window; Ryann, 20 Nov): 21 calls, every Grokie 3, no two share a time, all >= 30 s apart, all before 15:00.
+     Dash 1:00 6:00 10:30 · Ripple 2:00 9:00 12:30 · Mellow 3:00 7:00 11:00 · Zippy 4:00 8:00 11:30 · Sage (fixed) 5:00 10:00 12:00
+     The Chief 5:30 9:30 13:00 (each right after the five callers' latest calls it reads) · Flippy 13:30 14:00 14:30 (late-flip specialist; "no flip seen" is never a loss)
    EQUAL CAPABILITY: every caller gets the same shared reading vector (indicators.js) + what Grokky 1 & 2 picked and why, and runs the same decide()/confidence()/memory code. Only the emphasis differs: each has a fixed 1.00 weight budget over seven groups
    (momentum, volume, chart, revert, flow, strike, grokky):
      Dash   mom .26 vol .20 chart .12 revert .04 flow .08 strike .20 grokky .10   (leans on what is available early; bolder: K 6, confidence x1.08)
@@ -16,7 +16,7 @@
 (function(){
 'use strict';
 var KEY='pulseboard3.callers.v2',KEY1='pulseboard3.callers.v1',Q=900,GRACE=45,CAPR=60,SNAP=[4,8,12],CHIEF_MARGIN=0.15,PH_HOLD=600,PH_MIN=1800,DAMP=0.7,TRUST_MIN=15,FLIP_THR=70,FLIP_PICKY=5,FLIP_BASE=0.25,FLIP_NMIN=8;
-var BEATS={dash:[60,360,660],zippy:[240,480,720],mellow:[180,420,750],ripple:[120,570,810],sage:[300,600,720],flippy:[870],chief:[510]};
+var BEATS={dash:[60,360,630],zippy:[240,480,690],mellow:[180,420,660],ripple:[120,540,750],sage:[300,600,720],flippy:[810,840,870],chief:[330,570,780]};
 var IDS=['dash','zippy','mellow','ripple','sage','flippy','chief'],REG=['dash','zippy','mellow','ripple','sage'];
 var GL={momentum:'price momentum',volume:'volume & buyers vs sellers',chart:'chart shape',revert:'bounce-back',flow:'order flow',strike:'distance to strike & crowd',grokky:'the Grokkys’ evidence'};
 var GI={momentum:'🚀',volume:'📊',chart:'🕯️',revert:'🔁',flow:'🌊',strike:'🎯',grokky:'🤝'};
@@ -26,8 +26,8 @@ var PROFILES={
   mellow:{id:'mellow',name:'Mellow',style:'volume',tag:'I follow the volume',lens:'volume',blurb:'I watch who’s really trading: volume surges, buyers vs sellers and taker-buy share, with a little bounce-back sense.',col:'#7bd88f',K:4,shape:1,w:{momentum:.06,volume:.36,chart:.06,revert:.08,flow:.04,strike:.30,grokky:.10}},
   ripple:{id:'ripple',name:'Ripple',style:'chart reader',tag:'I read the chart',lens:'chart',blurb:'I read the shape of the chart: EMA cross, VWAP, RSI, support and resistance, and candle patterns.',col:'#6cc3ff',K:4,shape:1,w:{momentum:.06,volume:.06,chart:.36,revert:.08,flow:.04,strike:.30,grokky:.10}},
   sage:{id:'sage',name:'Sage',style:'conservative confirmation',tag:'I wait for confirmation',lens:'strike',blurb:'I’m the careful one. I make my last call late and weigh the gap to the strike and the crowd most, so I only get confident when things line up.',col:'#c9a3ff',K:3,shape:0.92,w:{momentum:.10,volume:.12,chart:.14,revert:.06,flow:.08,strike:.40,grokky:.10}}};
-PROFILES.flippy={id:'flippy',name:'Flippy',style:'late-flip gambler',tag:'I only bet on a late flip',lens:'strike',blurb:'I’m the big gambler. I sit out almost every window, and only speak up at 14:30 when I’m highly confident price is about to cross the strike against whoever is leading. No flip, no call.',col:'#ff5fb0',K:4,shape:1,w:{near:.30,mom:.18,acc:.10,cvd:.12,book:.08,crowd:.10,hist:.12}};
-PROFILES.chief={id:'chief',name:'The Chief',style:'overall status',tag:'I weigh in once, after the early calls',lens:'strike',blurb:'I’m the one who reads the room. At minute 8:30 I look at the latest call from Dash, Zippy, Mellow, Ripple and Sage, weigh each of them by how sure it sounds and how it has been doing lately, and give one overall call. If it’s too close to call, I say so.',col:'#ffd35e',K:4,shape:1,w:{}};
+PROFILES.flippy={id:'flippy',name:'Flippy',style:'late-flip gambler',tag:'I only bet on a late flip',lens:'strike',blurb:'I’m the big gambler. I sit out almost every window, and only speak up late (13:30, 14:00, 14:30) when I’m highly confident price is about to cross the strike against whoever is leading. No flip, no call.',col:'#ff5fb0',K:4,shape:1,w:{near:.30,mom:.18,acc:.10,cvd:.12,book:.08,crowd:.10,hist:.12}};
+PROFILES.chief={id:'chief',name:'The Chief',style:'overall status',tag:'I weigh in three times, each after the others have called',lens:'strike',blurb:'I’m the one who reads the room. At 5:30, 9:30 and 13:00 I look at the latest call from Dash, Zippy, Mellow, Ripple and Sage, weigh each of them by how sure it sounds and how it has been doing lately, and give one overall call. If it’s too close to call, I say so.',col:'#ffd35e',K:4,shape:1,w:{}};
 var FEAT={trust:1,tod:1,news:1,gate:1,damp:1,bench:1};var REPLAY=false;
 var FLW={near:'distance to the strike',mom:'late momentum against the leader',acc:'acceleration',cvd:'buyers-vs-sellers swing (CVD / taker share)',book:'order-book shift',crowd:'Kalshi crowd price moving',hist:'how similar flip setups paid off before'};
 var H=null,ST=null,V1=null,LIVE=null,liveAt=0,_now=null,lastSave=0,SWAPPED=false;
@@ -51,7 +51,7 @@ function ago(s){s=Math.max(0,s);return s<90?'moments':s<5400?Math.round(s/60)+' 
 /* ---------- storage (own key only; v1 is read-only) ---------- */
 function mkTot(id){var b=[];BEATS[id||'dash'].forEach(function(){b.push({n:0,w:0})});return {a:{n:0,w:0},b:b,g1:{n:0,w:0},g2:{n:0,w:0},sk:0,sit:{n:0,ok:0}}}
 function fresh(){var t={},m={};IDS.forEach(function(i){t[i]=mkTot(i);m[i]=[]});return {v:2,since:nowS(),rounds:{},tot:t,ps:{},mem:m,sig:{},cb:{},phase:{n:0,cur:null,cand:null,hist:[]},rk:{},cal:{},tod:{},bench:{},hl:[]}}
-function load(){if(ST)return ST;try{var s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&s.v===2&&s.rounds&&s.tot){var f=fresh();IDS.forEach(function(i){if(!s.tot[i])s.tot[i]=f.tot[i];if(!s.tot[i].sit)s.tot[i].sit={n:0,ok:0};if(!s.mem||!s.mem[i]){s.mem=s.mem||{};s.mem[i]=[]}});['ps','sig','cb','rk','cal','tod','bench'].forEach(function(k){if(!s[k])s[k]={}});if(!s.hl)s.hl=[];if(!s.phase)s.phase=f.phase;ST=s;return s}}catch(e){}ST=fresh();return ST}
+function load(){if(ST)return ST;try{var s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&s.v===2&&s.rounds&&s.tot){var f=fresh();IDS.forEach(function(i){if(!s.tot[i])s.tot[i]=f.tot[i];if(!s.tot[i].sit)s.tot[i].sit={n:0,ok:0};if(!s.mem||!s.mem[i]){s.mem=s.mem||{};s.mem[i]=[]}});['ps','sig','cb','rk','cal','tod','bench'].forEach(function(k){if(!s[k])s[k]={}});if(!s.hl)s.hl=[];if(!s.phase)s.phase=f.phase;IDS.forEach(function(i){var b=s.tot[i].b;while(b.length<BEATS[i].length)b.push({n:0,w:0});var p=s.ps[i];if(p&&p.b)while(p.b.length<BEATS[i].length)p.b.push({n:0,w:0})});ST=s;return s}}catch(e){}ST=fresh();return ST}
 function save(force){if(REPLAY||SWAPPED)return;var t=Date.now();if(!force&&t-lastSave<1500)return;lastSave=t;try{localStorage.setItem(KEY,JSON.stringify(ST))}catch(e){}}
 function loadV1(){if(V1!==null)return V1;V1=false;try{var s=JSON.parse(localStorage.getItem(KEY1)||'null');if(s&&s.tot&&s.rounds)V1=s}catch(e){}return V1}
 function mkRound(W){var c={};IDS.forEach(function(i){c[i]=BEATS[i].map(function(){return null})});return {W:W,calls:c,miss:{},snaps:{},res:null,scored:false}}
@@ -274,11 +274,11 @@ function scoreRound(r){
   var ses=sessionOf(r.W);
   IDS.forEach(function(id){var t=s.tot[id];r.calls[id].forEach(function(c,i){if(!c)return;
     if(c.shadow){if(c.dir)shadowScore(s,id,(c.dir==='UP')===up,r);return}
-    if(id==='flippy'){var flipped=c.leader?(up!==(c.leader==='UP')):null,p0=null;if(c.ph===pid){p0=s.ps.flippy||(s.ps.flippy={n:0,w:0,b:[{n:0,w:0}],gr:{},fl:{},sit:{n:0,ok:0}});if(!p0.fl)p0.fl={};if(!p0.sit)p0.sit={n:0,ok:0}}
+    if(id==='flippy'){var flipped=c.leader?(up!==(c.leader==='UP')):null,p0=null;if(c.ph===pid){p0=s.ps.flippy||(s.ps.flippy={n:0,w:0,b:BEATS.flippy.map(function(){return {n:0,w:0}}),gr:{},fl:{},sit:{n:0,ok:0}});if(!p0.fl)p0.fl={};if(!p0.sit)p0.sit={n:0,ok:0}}
       if(c.sit){if(c.leader){t.sit.n++;if(!flipped)t.sit.ok++;if(p0){p0.sit.n++;if(!flipped)p0.sit.ok++}}}
-      else{var okf=(c.dir==='UP')===up;t.a.n++;t.b[0].n++;if(okf){t.a.w++;t.b[0].w++}if(c.backs){var bf=t['g'+c.backs];bf.n++;if(okf)bf.w++}
-        var mf=s.mem.flippy;mf.push({W:r.W,i:0,dir:c.dir,ok:okf,gl:{}});while(mf.length>5)mf.shift();post(s,id,c,okf,r,ses,up);if(p0){p0.n++;p0.b[0].n++;if(okf){p0.w++;p0.b[0].w++}}}
-      if(p0&&c.bk2&&flipped!==null){var fo=p0.fl[c.bk2]||(p0.fl[c.bk2]={n:0,h:0});fo.n++;if(flipped)fo.h++}
+      else{var okf=(c.dir==='UP')===up;t.a.n++;t.b[i].n++;if(okf){t.a.w++;t.b[i].w++}if(c.backs){var bf=t['g'+c.backs];bf.n++;if(okf)bf.w++}
+        var mf=s.mem.flippy;mf.push({W:r.W,i:i,dir:c.dir,ok:okf,gl:{}});while(mf.length>5)mf.shift();post(s,id,c,okf,r,ses,up);if(p0){p0.n++;p0.b[i].n++;if(okf){p0.w++;p0.b[i].w++}}}
+      if(p0&&c.bk2&&flipped!==null&&i===r.calls.flippy.reduce(function(a,x,k){return x?k:a},-1)){var fo=p0.fl[c.bk2]||(p0.fl[c.bk2]={n:0,h:0});fo.n++;if(flipped)fo.h++}
       return}
     if(!c.dir){t.sk++;return}
     var ok=(c.dir==='UP')===up;t.a.n++;t.b[i].n++;if(ok){t.a.w++;t.b[i].w++}

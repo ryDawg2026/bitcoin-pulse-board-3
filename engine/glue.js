@@ -96,12 +96,12 @@ async function updResults(raw,H){var L=[];try{L=raw?JSON.parse(raw):[]}catch(e){
   L.sort(function(a,b){return a.W-b.W});L=L.slice(-40);H.results='ok ('+L.length+')';return JSON.stringify(L)}
 /* ---- Pulse Board 3 condensed view: each caller's latest call (this window, else last window) + its own plain-language reasoning ---- */
 function callsView(core,rounds,health,results){var n=nowS(),W=Math.floor(n/Q)*Q,CP=CallersPanel,out=[];
-  function latest(w,id){var r=rounds[w];if(!r||!r.calls||!r.calls[id])return null;var l=null;r.calls[id].forEach(function(c){if(c&&(!l||c.at>l.at))l=c});return l}
-  CP.IDS.forEach(function(id){var P=CP.PROFILES[id],c=latest(W,id),w=W;if(!c){c=latest(W-Q,id);w=W-Q}
-    var T=core&&core.tot&&core.tot[id],o={id:id,name:P.name,style:P.style,beats:CP.BEATS[id],call:null,w:T?T.a.w:0,l:T?T.a.n-T.a.w:0};
-    if(c){var st=c.sit?'noflip':c.nc?'noread':c.dir?'call':'skip',why='';try{why=CP._bubble(id,c)}catch(e){why=''}
-      o.call={W:w,cur:w===W,sec:c.sec,at:c.at,dir:c.dir||null,state:st,conf:c.conf||null,why:why,top:(c.top||[]).slice(0,3)}}
-    out.push(o)});
+  function any(w,id){var r=rounds[w];return !!(r&&r.calls&&r.calls[id]&&r.calls[id].some(Boolean))}
+  CP.IDS.forEach(function(id){var P=CP.PROFILES[id],T=core&&core.tot&&core.tot[id],w=any(W,id)||!any(W-Q,id)?W:W-Q,r=rounds[w],last=-1;
+    var slots=CP.BEATS[id].map(function(sec,i){var c=r&&r.calls&&r.calls[id]&&r.calls[id][i],miss=r&&r.miss&&r.miss[id]&&r.miss[id][i];
+      if(!c)return {sec:sec,state:miss?'missed':'pending'};last=i;var why='';try{why=CP._bubble(id,c)}catch(e){}
+      return {sec:sec,at:c.at,state:c.sit?'noflip':c.nc?'noread':c.dir?'call':'skip',dir:c.dir||null,conf:c.conf||null,why:why,top:(c.top||[]).slice(0,3)}});
+    out.push({id:id,name:P.name,style:P.style,w:T?T.a.w:0,l:T?T.a.n-T.a.w:0,W:w,cur:w===W,last:last,slots:slots})});
   return {W:W,serverTime:n,engine:{ok:!!(health&&health.lastOk&&n-health.lastOk<=180),lastOk:health&&health.lastOk||0},paperOnly:true,results:(results||[]).slice(-20),callers:out}}
 /* ---- HTTP ---- */
 function cors(extra){var h={'access-control-allow-origin':ORIGIN,'vary':'Origin','content-type':'application/json; charset=utf-8','cache-control':'public, max-age=10','x-content-type-options':'nosniff'};if(extra)Object.keys(extra).forEach(function(k){h[k]=extra[k]});return h}
