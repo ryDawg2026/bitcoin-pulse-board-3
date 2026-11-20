@@ -13,7 +13,7 @@ Beats (min:sec into the window; settles at 15:00). Zippy and Sage fixed:
 | Ripple | 2:00 9:30 13:30 |
 | Mellow | 3:00 7:00 12:30 |
 | Zippy (fixed) | 4:00 8:00 12:00 |
-| Sage (fixed) | 5:00 10:00 13:00 |
+| Sage (fixed) | 5:00 10:00 12:00 (shares 12:00 with Zippy by choice) |
 | The Chief | 8:30 |
 | Flippy | 14:30 |
 

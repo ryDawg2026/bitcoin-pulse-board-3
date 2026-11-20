@@ -1,5 +1,5 @@
 /* The callers — Dash, Zippy, Mellow, Ripple, Sage (v2) + Flippy + The Chief (Pulse Board 3: same logic as Pulse Board 2, new beat schedule). PAPER-ONLY: no money, no Kalshi orders, ever.
-   BEATS for Pulse Board 3 (seconds into each 15-minute Kalshi window). Zippy and Sage are FIXED (Ryann, 20 Nov): Zippy 4:00 8:00 12:00, Sage 5:00 10:00 13:00.
+   BEATS for Pulse Board 3 (seconds into each 15-minute Kalshi window). Zippy and Sage are FIXED (Ryann, 20 Nov): Zippy 4:00 8:00 12:00, Sage 5:00 10:00 12:00 (Ryann: Sage may share 12:00 with Zippy; same-second beats fire Zippy first).
    Everyone else is unique, never on a Zippy/Sage beat, and at least 60 s from each other:
      Dash 1:00 6:00 11:00 · Ripple 2:00 9:30 13:30 · Mellow 3:00 7:00 12:30 · The Chief 8:30 (after Dash 6, Mellow 7, Zippy 8, Ripple 2, Sage 5) · Flippy 14:30 (last call, 30 s before settlement)
    EQUAL CAPABILITY: every caller gets the same shared reading vector (indicators.js) + what Grokky 1 & 2 picked and why, and runs the same decide()/confidence()/memory code. Only the emphasis differs: each has a fixed 1.00 weight budget over seven groups
@@ -16,7 +16,7 @@
 (function(){
 'use strict';
 var KEY='pulseboard3.callers.v2',KEY1='pulseboard3.callers.v1',Q=900,GRACE=45,CAPR=60,SNAP=[4,8,12],CHIEF_MARGIN=0.15,PH_HOLD=600,PH_MIN=1800,DAMP=0.7,TRUST_MIN=15,FLIP_THR=70,FLIP_PICKY=5,FLIP_BASE=0.25,FLIP_NMIN=8;
-var BEATS={dash:[60,360,660],zippy:[240,480,720],mellow:[180,420,750],ripple:[120,570,810],sage:[300,600,780],flippy:[870],chief:[510]};
+var BEATS={dash:[60,360,660],zippy:[240,480,720],mellow:[180,420,750],ripple:[120,570,810],sage:[300,600,720],flippy:[870],chief:[510]};
 var IDS=['dash','zippy','mellow','ripple','sage','flippy','chief'],REG=['dash','zippy','mellow','ripple','sage'];
 var GL={momentum:'price momentum',volume:'volume & buyers vs sellers',chart:'chart shape',revert:'bounce-back',flow:'order flow',strike:'distance to strike & crowd',grokky:'the Grokkys’ evidence'};
 var GI={momentum:'🚀',volume:'📊',chart:'🕯️',revert:'🔁',flow:'🌊',strike:'🎯',grokky:'🤝'};
