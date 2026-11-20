@@ -32,7 +32,7 @@ function clk(t){return new Date(t*1000).toLocaleTimeString([],{hour:'numeric',mi
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 var LBL={call:null,noflip:'💤 No flip seen',noread:'🤷 No clear read',skip:'⏸ Skipped: too fast'};
 function card(o,W,now){var c=o.call,el=now-W,h='<div class="c">'+AV[o.id]+'<div class="hd"><span class="nm">'+esc(o.name)+'</span>',wl='<span class="wl" title="settled calls, all-time"><b>'+o.w+'W</b>–<s>'+o.l+'L</s></span>';
-  if(!c){var nx=o.beats.filter(function(s){return s>el})[0];return h+'<span class="d no">Waiting</span>'+wl+'</div><div class="t">First call at <b>'+bt(nx!=null?nx:o.beats[0])+'</b> ('+clk(W+(nx!=null?nx:o.beats[0]))+')</div></div>'}
+  if(!c){var nx=o.beats.filter(function(s){return s>el})[0];return h+'<span class="d no">Waiting</span>'+wl+'</div><div class="t">Next call at <b>'+bt(nx!=null?nx:o.beats[0])+'</b> ('+clk(nx!=null?W+nx:W+900+o.beats[0])+')</div></div>'}
   var d=c.state==='call'?'<span class="d '+c.dir+'">'+(c.dir==='UP'?'▲ UP':'▼ DOWN')+'</span>':'<span class="d no">'+LBL[c.state]+'</span>';
   h+=d+wl+'</div><div class="t">Called at <b>'+bt(c.sec)+'</b> ('+clk(c.at)+')'+(c.cur?'':' <span class="old">· last window</span>')+'</div>';
   h+='<div class="y">'+(c.why||'')+(c.top&&c.top.length?'<ul>'+c.top.map(function(x){return '<li>'+esc(x)+'</li>'}).join('')+'</ul>':'')+'</div>';
